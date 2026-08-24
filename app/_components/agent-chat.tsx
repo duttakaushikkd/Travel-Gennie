@@ -23,11 +23,14 @@ import { AgentMessage } from "./agent-message";
 import { BookingConfirmCard } from "./booking-confirm";
 import { FareTable } from "./fare-table";
 import { ItineraryCanvas } from "./itinerary-canvas";
+import { VoiceTalkButton } from "./voice-talk-button";
 
 const AGENT_NAME = "Travel Gennie";
 
 export function AgentChat() {
   const [cancellationError, setCancellationError] = useState<string>();
+  const [voiceError, setVoiceError] = useState<string>();
+  const [isListening, setIsListening] = useState(false);
   const agent = useEveAgent();
   const isBusy = agent.status === "submitted" || agent.status === "streaming";
   const isEmpty = agent.data.messages.length === 0;
@@ -39,10 +42,11 @@ export function AgentChat() {
     isBusy &&
     (agent.status === "submitted" || lastMessage?.role !== "assistant" || isPendingAssistantShell);
   const turnFailure = isBusy ? undefined : getLatestTurnFailure(agent.events);
-  const errorMessage = cancellationError ?? agent.error?.message ?? turnFailure;
+  const errorMessage = cancellationError ?? voiceError ?? agent.error?.message ?? turnFailure;
 
   const requestCancellation = () => {
     setCancellationError(undefined);
+    setVoiceError(undefined);
     void agent.cancel().catch((error: unknown) => {
       setCancellationError(toErrorMessage(error));
     });
@@ -53,6 +57,7 @@ export function AgentChat() {
     if ((text.length === 0 && message.files.length === 0) || isBusy) return;
 
     setCancellationError(undefined);
+    setVoiceError(undefined);
 
     if (message.files.length === 0) {
       await agent.send(text);
@@ -77,14 +82,38 @@ export function AgentChat() {
 
   const artifacts = extractTripArtifacts(agent.data.messages);
 
+  const handleVoiceSend = async (transcript: string) => {
+    const text = transcript.trim();
+    if (text.length === 0 || isBusy) {
+      return;
+    }
+    setCancellationError(undefined);
+    setVoiceError(undefined);
+    await agent.send(text);
+  };
+
   const composer = (
-    <PromptInput onSubmit={handleSubmit}>
-      <PromptInputTextarea
-        disabled={isBusy}
-        placeholder="Plan a trip, for example: 4 days in Jaipur from DEL, 12–16 Sep, 2 adults"
-      />
-      <PromptInputSubmit onStop={requestCancellation} status={agent.status} />
-    </PromptInput>
+    <div className="w-full">
+      <PromptInput onSubmit={handleSubmit}>
+        <PromptInputTextarea
+          className="pr-24"
+          disabled={isBusy}
+          placeholder="Plan a trip, for example: 4 days in Jaipur from DEL, 12–16 Sep, 2 adults"
+        />
+        <VoiceTalkButton
+          disabled={isBusy}
+          onError={setVoiceError}
+          onListeningChange={setIsListening}
+          onSend={handleVoiceSend}
+        />
+        <PromptInputSubmit onStop={requestCancellation} status={agent.status} />
+      </PromptInput>
+      {isListening ? (
+        <p className="mt-2 text-center text-muted-foreground text-xs" aria-live="polite">
+          Listening…
+        </p>
+      ) : null}
+    </div>
   );
 
   return (
