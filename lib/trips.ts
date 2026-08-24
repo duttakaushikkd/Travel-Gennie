@@ -1,122 +1,101 @@
-import { desc, eq } from "drizzle-orm";
-import { getDb } from "@/lib/db";
-import { fareQuotes, itineraries, trips } from "@/lib/db/schema";
+import { randomUUID } from "node:crypto";
+import { getDb } from "@/lib/mongo";
 import type { FareComparison, Itinerary, TripState } from "@/lib/trip";
 
+type TripDocument = {
+  _id: string;
+  comparison?: FareComparison;
+  createdAt: Date;
+  itinerary?: Itinerary;
+  status: string;
+  title: string;
+  tripState: TripState;
+  updatedAt: Date;
+  userId: string;
+};
+
 export async function saveTripForUser(input: {
-  clerkUserId: string;
+  comparison?: FareComparison;
+  itinerary?: Itinerary;
+  title?: string;
   tripId?: string;
   tripState: TripState;
-  title?: string;
-  itinerary?: Itinerary;
-  comparison?: FareComparison;
+  userId: string;
 }) {
-  const db = getDb();
+  const db = await getDb();
   const title =
     input.title ??
     `${input.tripState.originCity ?? "Trip"} → ${input.tripState.destinationCity ?? "destination"}`;
-
+  const now = new Date();
   let tripId = input.tripId;
+
   if (tripId) {
-    const existing = await db.select().from(trips).where(eq(trips.id, tripId)).limit(1);
-    const row = existing[0];
-    if (!row || row.clerkUserId !== input.clerkUserId) {
+    const existing = await db.collection<TripDocument>("trips").findOne({ _id: tripId });
+    if (!existing || existing.userId !== input.userId) {
       throw new Error("Trip not found.");
     }
-    await db
-      .update(trips)
-      .set({
-        title,
-        status: input.tripState.status,
-        tripState: input.tripState,
-        updatedAt: new Date(),
-      })
-      .where(eq(trips.id, tripId));
+    await db.collection<TripDocument>("trips").updateOne(
+      { _id: tripId },
+      {
+        $set: {
+          comparison: input.comparison ?? existing.comparison,
+          itinerary: input.itinerary ?? existing.itinerary,
+          status: input.tripState.status,
+          title,
+          tripState: input.tripState,
+          updatedAt: now,
+        },
+      },
+    );
   } else {
-    const inserted = await db
-      .insert(trips)
-      .values({
-        clerkUserId: input.clerkUserId,
-        title,
-        status: input.tripState.status,
-        tripState: input.tripState,
-      })
-      .returning({ id: trips.id });
-    tripId = inserted[0]?.id;
-    if (!tripId) {
-      throw new Error("Failed to save trip.");
-    }
-  }
-
-  if (input.itinerary) {
-    const versions = await db
-      .select({ version: itineraries.version })
-      .from(itineraries)
-      .where(eq(itineraries.tripId, tripId))
-      .orderBy(desc(itineraries.version))
-      .limit(1);
-    const nextVersion = (versions[0]?.version ?? 0) + 1;
-    await db.insert(itineraries).values({
-      tripId,
-      version: nextVersion,
-      days: input.itinerary,
-    });
-  }
-
-  if (input.comparison) {
-    const cheapest = input.comparison.options.find((option) => option.amount != null);
-    await db.insert(fareQuotes).values({
-      tripId,
-      provider: cheapest?.source ?? "deep_link_only",
-      amount: cheapest?.amount != null ? Math.round(cheapest.amount) : null,
-      currency: cheapest?.currency ?? "INR",
+    tripId = randomUUID();
+    await db.collection<TripDocument>("trips").insertOne({
+      _id: tripId,
       comparison: input.comparison,
+      createdAt: now,
+      itinerary: input.itinerary,
+      status: input.tripState.status,
+      title,
+      tripState: input.tripState,
+      updatedAt: now,
+      userId: input.userId,
     });
   }
 
-  return { tripId, title };
+  return { title, tripId };
 }
 
-export async function listTripsForUser(clerkUserId: string) {
-  const db = getDb();
-  return db
-    .select({
-      id: trips.id,
-      title: trips.title,
-      status: trips.status,
-      tripState: trips.tripState,
-      updatedAt: trips.updatedAt,
-    })
-    .from(trips)
-    .where(eq(trips.clerkUserId, clerkUserId))
-    .orderBy(desc(trips.updatedAt));
+export async function listTripsForUser(userId: string) {
+  const db = await getDb();
+  const rows = await db
+    .collection<TripDocument>("trips")
+    .find({ userId })
+    .sort({ updatedAt: -1 })
+    .toArray();
+
+  return rows.map((row) => ({
+    id: row._id,
+    status: row.status,
+    title: row.title,
+    tripState: row.tripState,
+    updatedAt: row.updatedAt,
+  }));
 }
 
-export async function loadTripForUser(clerkUserId: string, tripId: string) {
-  const db = getDb();
-  const rows = await db.select().from(trips).where(eq(trips.id, tripId)).limit(1);
-  const trip = rows[0];
-  if (!trip || trip.clerkUserId !== clerkUserId) {
+export async function loadTripForUser(userId: string, tripId: string) {
+  const db = await getDb();
+  const trip = await db.collection<TripDocument>("trips").findOne({ _id: tripId });
+  if (!trip || trip.userId !== userId) {
     throw new Error("Trip not found.");
   }
 
-  const itineraryRows = await db
-    .select()
-    .from(itineraries)
-    .where(eq(itineraries.tripId, tripId))
-    .orderBy(desc(itineraries.version))
-    .limit(1);
-
-  const quoteRows = await db
-    .select()
-    .from(fareQuotes)
-    .where(eq(fareQuotes.tripId, tripId))
-    .orderBy(desc(fareQuotes.fetchedAt))
-    .limit(1);
-
   return {
-    trip,
-    itinerary: itineraryRows[0]?.days ?? null,
-    comparison: quoteRows[0]?.comparison ?? null,
+    comparison: trip.comparison ?? null,
+    itinerary: trip.itinerary ?? null,
+    trip: {
+      id: trip._id,
+      title: trip.title,
+      tripState: trip.tripState,
+    },
   };
 }

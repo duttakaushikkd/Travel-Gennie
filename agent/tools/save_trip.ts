@@ -13,7 +13,7 @@ export default defineTool({
     const userId = requireUserId(ctx);
     const state = tripSession.get();
     const saved = await saveTripForUser({
-      clerkUserId: userId,
+      userId,
       tripId: state.savedTripId,
       tripState: state.trip,
       title,

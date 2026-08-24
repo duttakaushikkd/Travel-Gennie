@@ -7,5 +7,10 @@ node_modules
 .output
 .nitro
 dist
+android/.gradle
+android/build
+android/app/build
+android/local.properties
+android-sdk
 .DS_Store
 *.tsbuildinfo

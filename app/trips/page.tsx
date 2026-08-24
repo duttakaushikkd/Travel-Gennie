@@ -1,14 +1,14 @@
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { getSession } from "@/lib/session";
 import { listTripsForUser } from "@/lib/trips";
 
 export default async function TripsPage() {
-  const { userId } = await auth();
-  if (!userId) {
+  const session = await getSession();
+  if (!session) {
     redirect("/sign-in");
   }
 
-  const trips = await listTripsForUser(userId);
+  const trips = await listTripsForUser(session.userId);
 
   return (
     <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
