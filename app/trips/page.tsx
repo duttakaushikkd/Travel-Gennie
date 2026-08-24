@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { getSession } from "@/lib/get-session";
 import { listTripsForUser } from "@/lib/trips";
 
 export default async function TripsPage() {

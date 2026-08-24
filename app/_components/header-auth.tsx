@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { signOutAction } from "@/app/actions/auth";
-import { getSession } from "@/lib/session";
+import { getSession } from "@/lib/get-session";
 
 export async function HeaderAuth() {
   const session = await getSession();

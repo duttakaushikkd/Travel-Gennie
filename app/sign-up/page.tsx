@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { AuthForm } from "@/app/_components/auth-form";
-import { getSession } from "@/lib/session";
+import { getSession } from "@/lib/get-session";
 
 export default async function SignUpPage() {
   if (await getSession()) {

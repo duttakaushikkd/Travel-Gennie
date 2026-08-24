@@ -1,5 +1,4 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { cookies } from "next/headers";
 
 export const SESSION_COOKIE = "tg_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
@@ -65,11 +64,6 @@ export function sessionCookieOptions() {
     sameSite: "lax" as const,
     secure: process.env.NODE_ENV === "production",
   };
-}
-
-export async function getSession(): Promise<SessionUser | null> {
-  const store = await cookies();
-  return decodeSession(store.get(SESSION_COOKIE)?.value);
 }
 
 export function getSessionFromRequest(request: Request): SessionUser | null {
