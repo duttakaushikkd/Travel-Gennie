@@ -4,8 +4,8 @@ export const SESSION_COOKIE = "tg_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 
 export type SessionUser = {
-  email: string;
   userId: string;
+  username: string;
 };
 
 type SessionPayload = SessionUser & { exp: number };
@@ -47,10 +47,10 @@ export function decodeSession(token: string | undefined | null): SessionUser | n
   }
   try {
     const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as SessionPayload;
-    if (!payload.userId || !payload.email || payload.exp < Math.floor(Date.now() / 1000)) {
+    if (!payload.userId || !payload.username || payload.exp < Math.floor(Date.now() / 1000)) {
       return null;
     }
-    return { email: payload.email, userId: payload.userId };
+    return { userId: payload.userId, username: payload.username };
   } catch {
     return null;
   }

@@ -24,7 +24,7 @@ export async function HeaderAuth() {
   return (
     <form action={signOutAction} className="flex items-center gap-3">
       <span className="hidden max-w-[12rem] truncate text-muted-foreground text-sm sm:inline">
-        {session.email}
+        {session.username}
       </span>
       <button className="rounded-md border px-3 py-1.5" type="submit">
         Sign out

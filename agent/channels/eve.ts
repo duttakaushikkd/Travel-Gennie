@@ -9,7 +9,7 @@ function appSession(): AuthFn<Request> {
       return null;
     }
     return {
-      attributes: { email: session.email },
+      attributes: { username: session.username },
       authenticator: "password",
       principalId: session.userId,
       principalType: "user",

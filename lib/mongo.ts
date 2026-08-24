@@ -37,6 +37,11 @@ export async function getDb(): Promise<Db> {
 }
 
 async function ensureIndexes(db: Db): Promise<void> {
-  await db.collection("users").createIndex({ email: 1 }, { unique: true });
+  try {
+    await db.collection("users").dropIndex("email_1");
+  } catch {
+    // Index may not exist on a fresh database.
+  }
+  await db.collection("users").createIndex({ username: 1 }, { unique: true });
   await db.collection("trips").createIndex({ userId: 1, updatedAt: -1 });
 }

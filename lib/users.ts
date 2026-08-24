@@ -2,55 +2,63 @@ import { compare, hash } from "bcryptjs";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongo";
 
-const PASSWORD_ROUNDS = 12;
+const PASSWORD_ROUNDS = 10;
 
 export type UserRecord = {
   _id: ObjectId;
-  email: string;
-  passwordHash: string;
   createdAt: Date;
+  passwordHash: string;
+  username: string;
 };
 
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
+function normalizeUsername(username: string): string {
+  return username.trim().toLowerCase();
 }
 
-export async function createUser(email: string, password: string): Promise<{ email: string; userId: string }> {
-  const normalized = normalizeEmail(email);
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
-    throw new Error("Enter a valid email address.");
+function validateUsername(username: string): string {
+  const normalized = normalizeUsername(username);
+  if (!/^[a-z0-9_]{3,32}$/.test(normalized)) {
+    throw new Error("Username must be 3–32 letters, numbers, or underscores.");
   }
-  if (password.length < 8) {
-    throw new Error("Password must be at least 8 characters.");
+  return normalized;
+}
+
+export async function createUser(
+  username: string,
+  password: string,
+): Promise<{ userId: string; username: string }> {
+  const normalized = validateUsername(username);
+  if (password.length < 4) {
+    throw new Error("Password must be at least 4 characters.");
   }
 
   const db = await getDb();
-  const existing = await db.collection<UserRecord>("users").findOne({ email: normalized });
+  const existing = await db.collection<UserRecord>("users").findOne({ username: normalized });
   if (existing) {
-    throw new Error("An account with that email already exists.");
+    throw new Error("That username is already taken.");
   }
 
-  const passwordHash = await hash(password, PASSWORD_ROUNDS);
   const userId = new ObjectId();
   await db.collection<UserRecord>("users").insertOne({
     _id: userId,
-    email: normalized,
-    passwordHash,
     createdAt: new Date(),
+    passwordHash: await hash(password, PASSWORD_ROUNDS),
+    username: normalized,
   });
 
-  return { email: normalized, userId: userId.toHexString() };
+  return { userId: userId.toHexString(), username: normalized };
 }
 
-export async function verifyUser(email: string, password: string): Promise<{ email: string; userId: string }> {
+export async function verifyUser(
+  username: string,
+  password: string,
+): Promise<{ userId: string; username: string }> {
   const db = await getDb();
-  const user = await db.collection<UserRecord>("users").findOne({ email: normalizeEmail(email) });
-  if (!user) {
-    throw new Error("Email or password is incorrect.");
+  const user = await db.collection<UserRecord>("users").findOne({
+    username: normalizeUsername(username),
+  });
+  if (!user || !(await compare(password, user.passwordHash))) {
+    throw new Error("Username or password is incorrect.");
   }
-  const ok = await compare(password, user.passwordHash);
-  if (!ok) {
-    throw new Error("Email or password is incorrect.");
-  }
-  return { email: user.email, userId: user._id.toHexString() };
+  return { userId: user._id.toHexString(), username: user.username };
 }

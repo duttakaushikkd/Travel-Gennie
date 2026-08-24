@@ -9,16 +9,16 @@ export type AuthFormState = {
   error?: string;
 };
 
-async function setSessionCookie(user: { email: string; userId: string }) {
+async function setSessionCookie(user: { userId: string; username: string }) {
   const store = await cookies();
   store.set(SESSION_COOKIE, encodeSession(user), sessionCookieOptions());
 }
 
 export async function signUpAction(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
-  const email = String(formData.get("email") ?? "");
+  const username = String(formData.get("username") ?? "");
   const password = String(formData.get("password") ?? "");
   try {
-    const user = await createUser(email, password);
+    const user = await createUser(username, password);
     await setSessionCookie(user);
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Unable to create the account." };
@@ -27,10 +27,10 @@ export async function signUpAction(_prev: AuthFormState, formData: FormData): Pr
 }
 
 export async function signInAction(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
-  const email = String(formData.get("email") ?? "");
+  const username = String(formData.get("username") ?? "");
   const password = String(formData.get("password") ?? "");
   try {
-    const user = await verifyUser(email, password);
+    const user = await verifyUser(username, password);
     await setSessionCookie(user);
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Unable to sign in." };

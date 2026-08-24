@@ -22,7 +22,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       <div className="space-y-1">
         <h1 className="font-medium text-xl tracking-tight">{title}</h1>
         <p className="text-muted-foreground text-sm">
-          Email and password are stored in your MongoDB. No third-party login.
+          Pick a username and password. Login checks them against MongoDB.
         </p>
       </div>
       {state.error ? (
@@ -31,14 +31,20 @@ export function AuthForm({ mode }: AuthFormProps) {
         </p>
       ) : null}
       <label className="block space-y-1.5 text-sm">
-        <span>Email</span>
-        <Input autoComplete="email" name="email" required type="email" />
+        <span>Username</span>
+        <Input
+          autoComplete="username"
+          minLength={3}
+          name="username"
+          required
+          type="text"
+        />
       </label>
       <label className="block space-y-1.5 text-sm">
         <span>Password</span>
         <Input
           autoComplete={mode === "sign-up" ? "new-password" : "current-password"}
-          minLength={8}
+          minLength={4}
           name="password"
           required
           type="password"
